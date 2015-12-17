@@ -27,7 +27,7 @@ spanning_tree: spanning_tree_main.o ../vowpalwabbit/spanning_tree.o ../vowpalwab
 	$(CXX) $(FLAGS) -o $@ $+ $(STDLIBS) 
 
 install: spanning_tree
-	cp spanning_tree /usr/local/bin
+	cp spanning_tree ~/bin
 
 clean:
 	rm -f  *.o $(BINARIES) *~ $(MANPAGES)

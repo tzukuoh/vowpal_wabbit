@@ -8,27 +8,55 @@
 
 using namespace LEARNER;
 
-float get_active_coin_bias(float k, float avg_loss, float g, float c0)
-{ float b,sb,rs,sl;
+inline float sign(float w){ if (w < 0.) return -1.; else  return 1.;}
+
+float get_active_coin_bias(float k, float avg_loss, float g, float c0, bool oracular, bool simple_threshold)
+{ float a,b,sb,rs,sl,threshold,p;
+  float c1 = 5.0+2*sqrt(2.0), c2 = 5.;
+  
   b=(float)(c0*(log(k+1.)+0.0001)/(k+0.0001));
   sb=sqrt(b);
   avg_loss = min(1.f, max(0.f, avg_loss)); //loss should be in [0,1]
 
   sl=sqrt(avg_loss)+sqrt(avg_loss+g);
-  if (g<=sb*sl+b)
-    return 1;
-  rs = (sl+sqrt(sl*sl+4*g))/(2*g);
-  return b*rs*rs;
+  threshold = (simple_threshold) ? sb+b : sb*sl+b;
+  cout << "reverting weight = " << g << ", threshold = " << threshold << ", in_dis = " << (g<=threshold) << ", p = ";
+
+  if (g<=threshold)
+  { p = 1.f;
+  }
+  else if (oracular)
+  { p = 0.f;
+  }
+  else
+  { if(simple_threshold)
+    {
+    	a = (c1-1.)*sb + (c2-1)*b + g;
+    	rs = (c1+sqrt(c1*c1+4*a*c2))/(2*a);
+    }
+    else
+    {
+    	rs = (sl+sqrt(sl*sl+4*g))/(2*g);
+    }
+    
+    p = b*rs*rs;
+  }
+ 
+  cout << p;
+  return p;
+  
 }
 
 float query_decision(active& a, float ec_revert_weight, float k)
 { float bias, avg_loss, weighted_queries;
   if (k<=1.)
+  { cout << "reverting weight = nan, threshold = nan, in_dis = 1, p = 1";
     bias=1.;
+  }
   else
   { weighted_queries = (float)(a.all->initial_t + a.all->sd->weighted_examples - a.all->sd->weighted_unlabeled_examples);
     avg_loss = (float)(a.all->sd->sum_loss/k + sqrt((1.+0.5*log(k))/(weighted_queries+0.0001)));
-    bias = get_active_coin_bias(k, avg_loss, ec_revert_weight/k, a.active_c0);
+    bias = get_active_coin_bias(k, avg_loss, ec_revert_weight/k, a.active_c0, a.oracular, a.simple_threshold);
   }
   if(frand48() < bias)
     return 1.f / bias;
@@ -42,16 +70,38 @@ void predict_or_learn_simulation(active& a, base_learner& base, example& ec)
 
   if (is_learn)
   { vw& all = *a.all;
+    if(all.sd->queries >= a.min_labels)
+    { // save regressor
+      stringstream filename;
+      filename << all.final_regressor_name << "." << all.sd->n_processed << "." << all.sd->n_in_dis << "." << all.sd->sum_error_not_in_dis << "." << all.sd->queries;	
+      VW::save_predictor(all, filename.str());
+    
+      // Double label query budget	
+      a.min_labels *= 2.0;
+    }
+    
+    if(all.sd->queries >= a.max_labels)
+    { return;
+    }
 
     float k = ec.example_t - ec.weight;
     float threshold = 0.f;
 
     ec.confidence = fabsf(ec.pred.scalar - threshold) / base.sensitivity(ec);
     float importance = query_decision(a, ec.confidence, k);
+    cout << ", prediction = " << sign(ec.pred.scalar) << ", query = " << sign(importance) << endl;		
+
+    all.sd->n_processed = ec.example_t;
+    all.sd->n_in_dis += (fabs(importance - 1.f) <= 1e-10) ? 1 : 0; 
 
     if(importance > 0)
     { all.sd->queries += 1;
       ec.weight *= importance;
+      base.learn(ec);
+    }
+    else if(a.oracular)
+    { all.sd->sum_error_not_in_dis += (sign(ec.l.simple.label) == sign(ec.pred.scalar)) ? 0 : 1; 
+      ec.l.simple.label = sign(ec.pred.scalar);
       base.learn(ec);
     }
     else
@@ -124,15 +174,35 @@ base_learner* active_setup(vw& all)
   if(missing_option(all, false, "active", "enable active learning")) return nullptr;
   new_options(all, "Active Learning options")
   ("simulation", "active learning simulation mode")
-  ("mellowness", po::value<float>(), "active learning mellowness parameter c_0. Default 8");
+  ("mellowness", po::value<float>(), "active learning mellowness parameter c_0. Default 8")
+  ("oracular", "using oracular CAL. Default false")
+  ("simple_threshold", "using simple threshold. Default false")
+  ("max_labels", po::value<float>(), "maximum number of label queries.")
+  ("min_labels", po::value<float>(), "minimum number of label queries.");
   add_options(all);
 
   active& data = calloc_or_throw<active>();
   data.active_c0 = 8;
+  data.max_labels = (size_t)-1;
+  data.min_labels = (size_t)-1;
+  data.oracular = false;
+  data.simple_threshold = false;
   data.all=&all;
 
   if (all.vm.count("mellowness"))
     data.active_c0 = all.vm["mellowness"].as<float>();
+
+  if(all.vm.count("oracular"))
+    data.oracular = true;
+  
+  if(all.vm.count("simple_threshold"))
+    data.simple_threshold = true;
+  
+  if(all.vm.count("max_labels"))
+    data.max_labels = (size_t)all.vm["max_labels"].as<float>();
+  
+  if(all.vm.count("min_labels"))
+    data.min_labels = (size_t)all.vm["min_labels"].as<float>();
 
   if (count(all.args.begin(), all.args.end(),"--lda") != 0)
     THROW("error: you can't combine lda and active learning");

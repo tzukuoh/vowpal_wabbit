@@ -15,6 +15,8 @@ struct active_cover
   float beta_scale;
   bool oracular;
   size_t cover_size;
+  size_t min_labels;
+  size_t max_labels;
 
   float* lambda_n;
   float* lambda_d;
@@ -77,19 +79,26 @@ float query_decision(active_cover& a, base_learner& l, example& ec, float predic
   { return 1.f;
   }
 
-  float p, q2 = 4.f*pmin*pmin;
+  float p, q2 = 4.f*pmin*pmin, sum_lambda = 0.f;
+  size_t n_dis = 0;
+  
 
   for(size_t i = 0; i < a.cover_size; i++)
   { l.predict(ec,i+1);
     q2 += ((float)(sign(ec.pred.scalar) != sign(prediction))) * (a.lambda_n[i]/a.lambda_d[i]);
+    n_dis += (sign(ec.pred.scalar) != sign(prediction)) ? 1 : 0;
+    sum_lambda += (a.lambda_n[i]/a.lambda_d[i]); 
   }
 
   p = sqrt(q2)/(1+sqrt(q2));
 
   if(nanpattern(p))
-  { p = 1.f;
+  { cerr << "Warning: query probability = nan. Set it to 1." << endl;
+    p = 1.f;
   }
 
+  cout << "n_dis = " << n_dis << ", sum_lambda = " << sum_lambda << ", p = " << p << ", pmin = " << pmin << ", ";
+  
   if(frand48() <= p)
   { return 1.f/p;
   }
@@ -105,6 +114,19 @@ void predict_or_learn_active_cover(active_cover& a, base_learner& base, example&
 
   if (is_learn)
   { vw& all = *a.all;
+    if(all.sd->queries >= a.min_labels)
+    { // save regressor
+      stringstream filename;
+      filename << all.final_regressor_name << "." << all.sd->n_processed << "." << all.sd->n_in_dis << "." << all.sd->sum_error_not_in_dis << "." << all.sd->queries;	
+      VW::save_predictor(all, filename.str());
+    
+      // Double label query budget	
+      a.min_labels *= 2.0;
+    }
+    
+    if(all.sd->queries >= a.max_labels)
+    { return;
+    }
 
     float prediction = ec.pred.scalar;
     float t = ec.example_t - ec.weight;
@@ -116,13 +138,17 @@ void predict_or_learn_active_cover(active_cover& a, base_learner& base, example&
     bool in_dis =  dis_test(all, ec, base, prediction, threshold);
     float pmin = get_pmin((float)all.sd->sum_loss, t);
     float importance = query_decision(a, base, ec, prediction, pmin, in_dis);
+    
+    cout << "in_dis = " << in_dis << ", prediction = " << sign(prediction) << ", query = " << sign(importance) << endl;
 
+    all.sd->n_in_dis += (in_dis) ? 1 : 0;
+    all.sd->n_processed = ec.example_t;
     // Query (or not)
     if(!in_dis) // Use predicted label
-    { ec.l.simple.label = sign(prediction);
+    { all.sd->sum_error_not_in_dis += (sign(ec.l.simple.label) == sign(prediction)) ? 0 : 1;
+      ec.l.simple.label = sign(prediction);
       ec.weight = ec_input_weight;
       base.learn(ec, 0);
-
     }
     else if(importance > 0) // Use importance-weighted example
     { all.sd->queries += 1;
@@ -205,7 +231,9 @@ base_learner* active_cover_setup(vw& all)
   ("alpha", po::value<float>(), "active learning variance upper bound parameter alpha. Default 1.")
   ("beta_scale", po::value<float>(), "active learning variance upper bound parameter beta_scale. Default sqrt(10).")
   ("cover", po::value<float>(), "cover size. Default 12.")
-  ("oracular", "Use Oracular-CAL style query or not. Default false.");
+  ("oracular", "Use Oracular-CAL style query or not. Default false.")
+  ("max_labels", po::value<float>(), "maximum number of label queries.")
+  ("min_labels", po::value<float>(), "minimum number of label queries.");
   add_options(all);
 
   active_cover& data = calloc_or_throw<active_cover>();
@@ -215,6 +243,8 @@ base_learner* active_cover_setup(vw& all)
   data.all = &all;
   data.oracular = false;
   data.cover_size = 12;
+  data.max_labels = (size_t)-1;
+  data.min_labels = (size_t)-1;
 
   if(all.vm.count("mellowness"))
   { data.active_c0 = all.vm["mellowness"].as<float>();
@@ -236,6 +266,14 @@ base_learner* active_cover_setup(vw& all)
   if(all.vm.count("oracular"))
   { data.oracular = true;
     data.cover_size = 0;
+  }
+
+  if(all.vm.count("max_labels"))
+  { data.max_labels = (size_t)all.vm["max_labels"].as<float>();
+  }
+  
+  if(all.vm.count("min_labels"))
+  { data.min_labels = (size_t)all.vm["min_labels"].as<float>();
   }
 
   if (count(all.args.begin(), all.args.end(),"--lda") != 0)

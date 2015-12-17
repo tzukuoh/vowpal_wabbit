@@ -1344,6 +1344,12 @@ void finish(vw& all, bool delete_all)
     cerr << endl << "total feature number = " << all.sd->total_features;
     if (all.sd->queries > 0)
       cerr << endl << "total queries = " << all.sd->queries << endl;
+    if (all.sd->n_in_dis > 0)
+      cerr << "number of examples in disagreement regions = " << all.sd->n_in_dis << endl;
+    if (all.sd->n_processed > 0)
+      cerr << "number of examples processed = " << all.sd->n_processed << endl;
+    if (all.sd->sum_error_not_in_dis > 0)
+      cerr << "sum of errors outside of disagreement regions = " << all.sd->sum_error_not_in_dis << endl;
     cerr << endl;
   }
 
