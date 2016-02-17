@@ -3,11 +3,12 @@
 #include "cb_algs.h"
 #include "rand48.h"
 #include "bs.h"
-#include "../explore/static/MWTExplorer.h"
+#include "../explore/cpp/MWTExplorer.h"
 #include "vw.h"
 
 using namespace LEARNER;
 using namespace MultiWorldTesting;
+using namespace MultiWorldTesting::SingleAction;
 
 struct cbify;
 
@@ -371,7 +372,7 @@ base_learner* cbify_setup(vw& all)
   { size_t cover = (uint32_t)vm["cover"].as<size_t>();
     data.cs = all.cost_sensitive;
     data.second_cs_label.costs.resize(data.k);
-    data.second_cs_label.costs.end = data.second_cs_label.costs.begin+data.k;
+    data.second_cs_label.costs.end() = data.second_cs_label.costs.begin()+data.k;
     float epsilon = 0.05f;
     if (vm.count("epsilon"))
       epsilon = vm["epsilon"].as<float>();

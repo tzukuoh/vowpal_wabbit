@@ -4,6 +4,14 @@ individual contributors. All rights reserved.  Released under a BSD
 license as described in the file LICENSE.
  */
 #pragma once
+
+#ifdef _WIN32
+#ifdef LEAKCHECK
+// Visual Leak Detector for memory leak detection on Windows
+#include <vld.h>
+#endif
+#endif
+
 #include "global_data.h"
 #include "example.h"
 #include "hash.h"
@@ -24,6 +32,7 @@ vw* seed_vw_model(vw* vw_model, string extra_args);
 void cmd_string_replace_value( std::stringstream*& ss, string flag_to_replace, string new_value );
 
 char** get_argv_from_string(string s, int& argc);
+const char* are_features_compatible(vw& vw1, vw& vw2);
 
 /*
   Call finish() after you are done with the vw instance.  This cleans up memory usage.
@@ -36,7 +45,6 @@ void end_parser(vw& all);
 bool is_ring_example(vw& all, example* ae);
 bool parse_atomic_example(vw& all, example* ae, bool do_read);
 
-typedef pair< unsigned char, vector<feature> > feature_space; //just a helper definition.
 struct primitive_feature_space   //just a helper definition.
 { unsigned char name;
   feature* fs;
@@ -96,6 +104,7 @@ primitive_feature_space* export_example(vw& all, example* e, size_t& len);
 void releaseFeatureSpace(primitive_feature_space* features, size_t len);
 
 void save_predictor(vw& all, string reg_name);
+void save_predictor(vw& all, io_buf& buf);
 
 // inlines
 
