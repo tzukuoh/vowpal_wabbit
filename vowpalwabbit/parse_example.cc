@@ -33,7 +33,7 @@ public:
   unsigned char (*redefine)[256];
   parser* p;
   example* ae;
-  char* affix_features;
+  uint64_t* affix_features;
   bool* spelling_features;
   v_array<char> spelling;
 
@@ -103,16 +103,17 @@ public:
             push_many(feature_v, feature_name.begin, feature_name.end - feature_name.begin);
             feature_v.push_back('\0');
             fs.space_names.push_back(audit_strings_ptr(new audit_strings(base, feature_v.begin())));
+	    feature_v.delete_v();
           }
         if ((affix_features[index] > 0) && (feature_name.end != feature_name.begin))
           {
             features& affix_fs = ae->feature_space[affix_namespace];
             if (affix_fs.size() == 0)
               ae->indices.push_back(affix_namespace);
-            char affix = affix_features[index];
+            uint64_t affix = affix_features[index];
             while (affix > 0)
               { bool is_prefix = affix & 0x1;
-                char len   = (affix >> 1) & 0x7;
+                uint64_t len   = (affix >> 1) & 0x7;
                 substring affix_name = { feature_name.begin, feature_name.end };
                 if (affix_name.end > affix_name.begin + len)
                   { if (is_prefix)

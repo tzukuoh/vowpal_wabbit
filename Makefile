@@ -128,8 +128,14 @@ test_gcov: .FORCE vw_gcov library_example_gcov
 	@echo "vw running test-suite..."
 	(cd test && ./RunTests -d -fe -E 0.001 ../vowpalwabbit/vw ../vowpalwabbit/vw)
 
+bigtests:	.FORCE vw
+	(cd big_tests && $(MAKE) $(MAKEFLAGS))
+
 install: $(BINARIES)
 	cd vowpalwabbit; cp $(BINARIES) ~/bin; cd ../cluster; $(MAKE) install
+
+doc:
+	(cd doc && doxygen Doxyfile)
 
 clean:
 	cd vowpalwabbit && $(MAKE) clean
@@ -140,4 +146,4 @@ ifneq ($(JAVA_HOME),)
 	cd java    && $(MAKE) clean
 endif
 
-.PHONY: all clean install
+.PHONY: all clean install doc

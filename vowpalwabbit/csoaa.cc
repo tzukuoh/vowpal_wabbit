@@ -253,7 +253,6 @@ bool check_ldf_sequence(ldf& data, size_t start_K)
 { bool isTest = COST_SENSITIVE::example_is_test(*data.ec_seq[start_K]);
   for (size_t k=start_K; k<data.ec_seq.size(); k++)
   { example *ec = data.ec_seq[k];
-
     // Each sub-example must have just one cost
     assert(ec->l.cs.costs.size()==1);
 
@@ -771,7 +770,7 @@ base_learner* csldf_setup(vw& all)
     ldf_arg = vm["ldf_override"].as<string>();
   if (vm.count("csoaa_rank"))
   { ld.rank = true;
-    all.multilabel_prediction = true;
+    all.delete_prediction = MULTILABEL::multilabel.delete_label;
   }
 
   all.p->lp = COST_SENSITIVE::cs_label;

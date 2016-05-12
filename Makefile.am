@@ -4,6 +4,10 @@ nobase_include_HEADERS = vowpalwabbit/allreduce.h \
 	vowpalwabbit/comp_io.h \
 	vowpalwabbit/config.h \
 	vowpalwabbit/example.h \
+	vowpalwabbit/feature_group.h \
+	vowpalwabbit/cb_explore.h \
+	vowpalwabbit/crossplat_compat.h \
+	vowpalwabbit/parse_example.h \
 	vowpalwabbit/floatbits.h \
 	vowpalwabbit/global_data.h \
 	vowpalwabbit/hash.h \
@@ -26,7 +30,7 @@ nobase_include_HEADERS = vowpalwabbit/allreduce.h \
 	vowpalwabbit/vw_validate.h \
 	vowpalwabbit/multilabel.h \
 	vowpalwabbit/constant.h \
-	vowpalwabbit/ezexample.h
+	vowpalwabbit/ezexample.h 
 
 
 noinst_HEADERS = vowpalwabbit/accumulate.h \
@@ -37,6 +41,7 @@ noinst_HEADERS = vowpalwabbit/accumulate.h \
 	vowpalwabbit/cache.h \
 	vowpalwabbit/cb.h \
 	vowpalwabbit/cb_algs.h \
+	vowpalwabbit/cb_explore.h \
 	vowpalwabbit/cbify.h \
 	vowpalwabbit/comp_io.h \
 	vowpalwabbit/constant.h \
@@ -44,6 +49,7 @@ noinst_HEADERS = vowpalwabbit/accumulate.h \
 	vowpalwabbit/csoaa.h \
 	vowpalwabbit/ect.h \
 	vowpalwabbit/interactions.h \
+	vowpalwabbit/gen_cs_example.h \
 	vowpalwabbit/gd.h \
 	vowpalwabbit/gd_mf.h \
 	vowpalwabbit/interact.h \
