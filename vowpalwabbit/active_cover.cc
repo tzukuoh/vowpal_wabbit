@@ -17,9 +17,13 @@ struct active_cover
   size_t cover_size;
   size_t min_labels;
   size_t max_labels;
+  size_t labels_stride;
+  bool epiphany; 
+  float beta;
 
   float* lambda_n;
   float* lambda_d;
+  size_t u;
 
   vw* all;//statistics, loss
   LEARNER::base_learner* l;
@@ -139,7 +143,7 @@ void predict_or_learn_active_cover(active_cover& a, base_learner& base, example&
     float pmin = get_pmin((float)all.sd->sum_loss, t);
     float importance = query_decision(a, base, ec, prediction, pmin, in_dis);
     
-    cout << "in_dis = " << in_dis << ", prediction = " << sign(prediction) << ", query = " << sign(importance) << endl;
+    //cout << "in_dis = " << in_dis << ", prediction = " << sign(prediction) << ", query = " << sign(importance) << endl;
 
     all.sd->n_in_dis += (in_dis) ? 1 : 0;
     all.sd->n_processed = ec.example_t;
@@ -240,11 +244,15 @@ base_learner* active_cover_setup(vw& all)
   data.active_c0 = 8.f;
   data.alpha = 1.f;
   data.beta_scale = 10.f; // this is actually beta_scale^2
+  data.beta = 1.f;
   data.all = &all;
   data.oracular = false;
   data.cover_size = 12;
+  data.labels_stride = 50;
   data.max_labels = (size_t)-1;
   data.min_labels = (size_t)-1;
+  data.epiphany = false;
+  data.u = 0;
 
   if(all.vm.count("mellowness"))
   { data.active_c0 = all.vm["mellowness"].as<float>();
@@ -254,6 +262,10 @@ base_learner* active_cover_setup(vw& all)
   { data.alpha = all.vm["alpha"].as<float>();
   }
 
+  if(all.vm.count("beta"))
+  { data.beta = all.vm["beta"].as<float>();
+  }
+  
   if(all.vm.count("beta_scale"))
   { data.beta_scale = all.vm["beta_scale"].as<float>();
     data.beta_scale *= data.beta_scale;
@@ -273,6 +285,10 @@ base_learner* active_cover_setup(vw& all)
   }
   
   if(all.vm.count("min_labels"))
+  { data.min_labels = (size_t)all.vm["min_labels"].as<float>();
+  }
+  
+  if(all.vm.count("labels_stride"))
   { data.min_labels = (size_t)all.vm["min_labels"].as<float>();
   }
 
