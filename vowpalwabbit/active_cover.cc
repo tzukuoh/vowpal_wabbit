@@ -46,13 +46,13 @@ bool dis_test(vw& all, example& ec, base_learner& base, float prediction, float 
   return result;
 }
 
-float get_threshold(float sum_loss, float t, float c0, float alpha)
+float get_threshold(float sum_loss, float t, float c0, float alpha, float u)
 { if(t < 3.f)
   { return 1.f;
   }
   else
   { float avg_loss = sum_loss/t;
-    float threshold = sqrt(c0*avg_loss/t) + fmax(2.f*alpha,4.f)*c0*log(t)/t;
+    float threshold = sqrt(c0*avg_loss/t) + fmax(2.f*alpha,4.f)*c0*(log(t)/t + u/t);
     return threshold;
   }
 }
@@ -80,7 +80,17 @@ float query_decision(active_cover& a, base_learner& l, example& ec, float predic
   }
 
   if(a.oracular)
-  { return 1.f;
+  { if (!v_array_contains<char>(ec.tag,'u') || a.epiphany)
+    { return 1.f;
+    }
+    else if (frand48() <= a.beta)
+    { a.epiphany = true;
+      return 1.f;
+    }
+    else
+    { a.u += 1;
+      return -1.f;
+    }
   }
 
   float p, q2 = 4.f*pmin*pmin, sum_lambda = 0.f;
@@ -101,7 +111,7 @@ float query_decision(active_cover& a, base_learner& l, example& ec, float predic
     p = 1.f;
   }
 
-  cout << "n_dis = " << n_dis << ", sum_lambda = " << sum_lambda << ", p = " << p << ", pmin = " << pmin << ", ";
+  //cout << "n_dis = " << n_dis << ", sum_lambda = " << sum_lambda << ", p = " << p << ", pmin = " << pmin << ", ";
   
   if(frand48() <= p)
   { return 1.f/p;
@@ -125,7 +135,7 @@ void predict_or_learn_active_cover(active_cover& a, base_learner& base, example&
       VW::save_predictor(all, filename.str());
     
       // Double label query budget	
-      a.min_labels *= 2.0;
+      a.min_labels += a.labels_stride;
     }
     
     if(all.sd->queries >= a.max_labels)
@@ -138,7 +148,7 @@ void predict_or_learn_active_cover(active_cover& a, base_learner& base, example&
     float ec_input_label = ec.l.simple.label;
 
     // Compute threshold defining allowed set A
-    float threshold = get_threshold((float)all.sd->sum_loss, t, a.active_c0, a.alpha);
+    float threshold = get_threshold((float)all.sd->sum_loss, t, a.active_c0, a.alpha, a.u);
     bool in_dis =  dis_test(all, ec, base, prediction, threshold);
     float pmin = get_pmin((float)all.sd->sum_loss, t);
     float importance = query_decision(a, base, ec, prediction, pmin, in_dis);
@@ -289,7 +299,7 @@ base_learner* active_cover_setup(vw& all)
   }
   
   if(all.vm.count("labels_stride"))
-  { data.min_labels = (size_t)all.vm["min_labels"].as<float>();
+  { data.labels_stride = (size_t)all.vm["labels_stride"].as<float>();
   }
 
   if (count(all.args.begin(), all.args.end(),"--lda") != 0)
