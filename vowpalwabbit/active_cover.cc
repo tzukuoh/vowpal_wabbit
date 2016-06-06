@@ -80,17 +80,7 @@ float query_decision(active_cover& a, base_learner& l, example& ec, float predic
   }
 
   if(a.oracular)
-  { if (!v_array_contains<char>(ec.tag,'u') || a.epiphany)
-    { return 1.f;
-    }
-    else if (frand48() <= a.beta)
-    { a.epiphany = true;
-      return 1.f;
-    }
-    else
-    { a.u += 1;
-      return -1.f;
-    }
+  { return 1.f; 
   }
 
   float p, q2 = 4.f*pmin*pmin, sum_lambda = 0.f;
@@ -136,6 +126,7 @@ void predict_or_learn_active_cover(active_cover& a, base_learner& base, example&
     
       // Double label query budget	
       a.min_labels += a.labels_stride;
+      //a.min_labels *= 2;
     }
     
     if(all.sd->queries >= a.max_labels)
@@ -166,9 +157,27 @@ void predict_or_learn_active_cover(active_cover& a, base_learner& base, example&
     }
     else if(importance > 0) // Use importance-weighted example
     { all.sd->queries += 1;
-      ec.weight = ec_input_weight * importance;
-      ec.l.simple.label = ec_input_label;
-      base.learn(ec, 0);
+      bool sure = true;
+      ec.l.simple.label = FLT_MAX;
+ 
+      if (v_array_contains<char>(ec.tag,'u') && !a.epiphany)
+      { float r = frand48();
+        cout << r << endl;
+        if (r <= a.beta)
+        { a.epiphany = true;
+        }
+        else
+        { cout << ec.tag << endl;
+          a.u += 1;
+          sure = false;
+        }
+      }
+
+      if (sure)
+      { ec.weight = ec_input_weight * importance;
+        ec.l.simple.label = ec_input_label;
+        base.learn(ec, 0);
+      }
     }
     else // skipped example
     { // Make sure the loss computation does not include
@@ -243,11 +252,13 @@ base_learner* active_cover_setup(vw& all)
   new_options(all, "Active Learning with cover options")
   ("mellowness", po::value<float>(), "active learning mellowness parameter c_0. Default 8.")
   ("alpha", po::value<float>(), "active learning variance upper bound parameter alpha. Default 1.")
+  ("beta", po::value<float>(), "Labeler flipping probability. DDefault 1.")
   ("beta_scale", po::value<float>(), "active learning variance upper bound parameter beta_scale. Default sqrt(10).")
   ("cover", po::value<float>(), "cover size. Default 12.")
   ("oracular", "Use Oracular-CAL style query or not. Default false.")
   ("max_labels", po::value<float>(), "maximum number of label queries.")
-  ("min_labels", po::value<float>(), "minimum number of label queries.");
+  ("min_labels", po::value<float>(), "minimum number of label queries.")
+  ("labels_stride", po::value<float>(), "number of label queries between checkpoints. Default 50");
   add_options(all);
 
   active_cover& data = calloc_or_throw<active_cover>();
